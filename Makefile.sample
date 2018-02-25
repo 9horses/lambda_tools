@@ -1,0 +1,59 @@
+# Configuration variables
+#
+# optionally declare the aws command
+# (we use this to identify profile to be used)
+AWS = aws --profile my_lambda_profile
+# 
+# where we store our secrets (used only in this Makefile)
+# (Note - it's considered best practices to store secrets outside of git.)
+SECRETS_DIR = ~/.secrets
+# 
+# required - list files that go into the package
+LAMBDA_FILES = my_lambda.py
+#
+# required - Lambda function name
+LAMBDA_FUNC_NAME = my_lambda
+#
+# required - the function within the package that needs to be called
+LAMBDA_HANDLER = my_lambda.my_lambda_handler
+#
+# required for 'make deploy/' - configuration information for Lambda function
+LAMBDA_ROLE = arn:aws:iam::012345678901:role/MyLambdaRole
+LAMBDA_VPC_CONFIG = SubnetIds=subnet-dead0123,subnet-beef01234,subnet-beef5678,SecurityGroupIds=sg-dead5678
+LAMBDA_TIMEOUT = 120
+LAMBDA_RUNTIME = python3.6
+#
+# required for 'make test'
+# LAMBDA_TEST_EVENT is the event used
+# see https://docs.aws.amazon.com/lambda/latest/dg/eventsources.html for examples of events based on event sources
+LAMBDA_TEST_EVENT = '$(shell cat test.js)'
+#
+# optional - enumerate packages are needed by the lambda function
+LAMBDA_PKGS = pytz
+#
+# optional - list of secret files (e.g., API Keys)
+# note these files should not be checked in, but rather be copied from secure configuration store
+# mongo connection key
+LAMBDA_ENV_VARS_SECRET += MY_SECRET_API_KEY
+MY_SECRET_API_KEY = $(shell cat $(SECRETS_DIR)/my_secret_api_key)
+
+# include the makefile that does most of the work.
+# typically add lambda_tools as a subdirectory (submodule) and include via the following:
+include lambda_tools/lambda.mk
+
+##
+## Optional - likely not needed
+## here's a way to add an api key stored in a file in the lambda package
+##
+# add it to the list of files to be 'built' into the task directory
+LAMBDA_FILES += my_secret_key.json
+## rule to copy the secrets files to here
+my_secret_key.json : % : $(SECRETS_DIR)/%
+	cp $< $@
+
+## should be removed on 'make clean'
+clean: clean-my_secret_key.json
+.PHONY: clean-my_secret_key.json
+clean-my_secret_key.json:
+	rm -rf my_secret_key.json
+
